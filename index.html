@@ -3,81 +3,67 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Castello Resto</title>
+<title>Castello Pro</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
 
 <style>
-body { background:#0F0F0F; color:white; font-family:sans-serif; }
-.gold { color:#C5A059; }
-.btn-gold { background: linear-gradient(135deg, #C5A059, #8E6E37); }
-.card { background:#1A1A1A; border:1px solid #2A2A2A; }
+body{background:#0F0F0F;color:white;font-family:sans-serif}
+.gold{color:#C5A059}
+.card{background:#1A1A1A;border:1px solid #2A2A2A}
+.btn{background:linear-gradient(135deg,#C5A059,#8E6E37)}
 </style>
 </head>
 
 <body>
 <div id="app"></div>
 
-<script>
-let mode="home", tab="makanan", cart=[], meja=null, tap=0;
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+getFirestore,collection,addDoc,onSnapshot,deleteDoc,doc,updateDoc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-/* ADMIN */
-let passAdmin="12345", page="pesanan";
+/* 🔥 CONFIG */
+const firebaseConfig={
+apiKey:"ISI",
+authDomain:"ISI",
+projectId:"ISI"
+};
 
-/* DATA */
-let orders=[], transaksi=[], lastStruk=null;
+const appFB=initializeApp(firebaseConfig);
+const db=getFirestore(appFB);
 
-/* MENU (DINAMIS) */
-let makanan=[
-{id:1,nama:"Nasi Goreng",harga:20000,img:"https://source.unsplash.com/300x200/?fried-rice"}
-];
-let minuman=[
-{id:2,nama:"Es Teh",harga:10000,img:"https://source.unsplash.com/300x200/?tea"}
-];
+/* STATE */
+let mode="home",tab="makanan",cart=[],meja=null,page="pesanan";
+let menus=[],orders=[];
 
-/* ================= RENDER ================= */
+/* REALTIME LISTENER */
+onSnapshot(collection(db,"menu"),snap=>{
+menus=snap.docs.map(d=>({id:d.id,...d.data()}));
+render();
+});
+
+onSnapshot(collection(db,"orders"),snap=>{
+orders=snap.docs.map(d=>({id:d.id,...d.data()}));
+render();
+});
+
+/* ================= UI ================= */
 function render(){
-const app=document.getElementById("app"); if(!app) return;
+let app=document.getElementById("app");
 
 /* HOME */
 if(mode==="home"){
 app.innerHTML=`
-<div class="flex items-center justify-center min-h-screen text-center">
+<div class="flex items-center justify-center h-screen text-center">
 <div>
 <h1 class="text-5xl gold mb-6">CASTELLO</h1>
-<button onclick="mode='meja';render()" class="w-64 py-4 mb-3 btn-gold text-black rounded-xl">ORDER</button>
-<button onclick="mode='login';render()" class="w-64 py-4 bg-gray-800 rounded-xl">ADMIN</button>
-</div></div>`;
-}
-
-/* LOGIN */
-if(mode==="login"){
-app.innerHTML=`
-<div class="flex items-center justify-center min-h-screen">
-<div class="card p-6 w-80 text-center">
-<h2 class="gold mb-4">Admin Login</h2>
-<input id="pass" type="password" placeholder="Password" class="w-full p-2 mb-3 bg-black border">
-<button onclick="login()" class="w-full py-2 btn-gold text-black">Masuk</button>
-</div></div>`;
-}
-
-/* ADMIN */
-if(mode==="admin"){
-app.innerHTML=`
-<div class="flex min-h-screen">
-
-<div class="w-56 bg-black p-4 space-y-2">
-<h2 class="gold">Admin</h2>
-<button onclick="page='pesanan';render()">Pesanan</button>
-<button onclick="page='analisis';render()">Analisis</button>
-<button onclick="page='keuangan';render()">Keuangan</button>
-<button onclick="page='menu';render()">Menu</button>
-<button onclick="page='password';render()">Password</button>
-<button onclick="logout()" class="text-red-400">Logout</button>
+<button onclick="mode='meja';render()" class="btn px-6 py-3 text-black rounded">ORDER</button>
+<button onclick="mode='admin';render()" class="ml-3 bg-gray-800 px-6 py-3 rounded">ADMIN</button>
 </div>
-
-<div class="flex-1 p-4">${adminView()}</div>
 </div>`;
 }
 
@@ -85,8 +71,8 @@ app.innerHTML=`
 if(mode==="meja"){
 app.innerHTML=`
 <div class="p-6 text-center">
-<h2 class="gold">Pilih Meja</h2>
-<div class="grid grid-cols-3 gap-3 mt-4">
+<h2 class="gold mb-4">Pilih Meja</h2>
+<div class="grid grid-cols-3 gap-3">
 ${[1,2,3,4,5,6,7,8,9].map(n=>`
 <button onclick="setMeja(${n})" class="bg-gray-800 py-5 rounded">Meja ${n}</button>`).join("")}
 </div></div>`;
@@ -94,36 +80,29 @@ ${[1,2,3,4,5,6,7,8,9].map(n=>`
 
 /* ORDER */
 if(mode==="order"){
-let menu=tab==="makanan"?makanan:minuman;
-
 app.innerHTML=`
-<header class="p-3 text-center relative">
+<div class="p-3 text-center border-b">
 <h1 class="gold">CASTELLO</h1>
 <p class="text-xs">Meja ${meja}</p>
-<div onclick="secret()" class="absolute top-0 right-0 w-16 h-16"></div>
-</header>
-
-<div class="flex">
-<button onclick="tab='makanan';render()" class="flex-1 p-2 ${tab==="makanan"?"gold":""}">Makanan</button>
-<button onclick="tab='minuman';render()" class="flex-1 p-2 ${tab==="minuman"?"gold":""}">Minuman</button>
 </div>
 
 <div class="grid grid-cols-2 gap-3 p-3">
-${menu.map(m=>`
-<div class="card rounded overflow-hidden">
+${menus.map(m=>`
+<div class="card rounded">
 <img src="${m.img}" class="h-24 w-full object-cover">
 <div class="p-2 text-center">
 <p>${m.nama}</p>
 <p class="gold">Rp ${m.harga}</p>
-<button onclick="add(${m.id})" class="text-xs border px-2">Tambah</button>
+<button onclick="add('${m.id}','${m.nama}',${m.harga})"
+class="border px-2 text-xs">Tambah</button>
 </div>
-</div>`).join("")}
+</div>`).join("")||"<p class='col-span-2 text-center'>Menu kosong</p>"}
 </div>
 
 ${cart.length?`
 <div class="fixed bottom-0 w-full bg-black p-3 flex justify-between">
 <span>Rp ${total()}</span>
-<button onclick="mode='checkout';render()" class="btn-gold px-3">Checkout</button>
+<button onclick="mode='checkout';render()" class="btn px-3 text-black">Checkout</button>
 </div>`:""}
 `;
 }
@@ -132,46 +111,59 @@ ${cart.length?`
 if(mode==="checkout"){
 app.innerHTML=`
 <div class="p-4">
-<h2 class="gold">Checkout</h2>
+<h2 class="gold mb-3">Checkout</h2>
 
 ${cart.map(i=>`
 <div class="flex justify-between">
 <span>${i.nama} x${i.qty}</span>
-<span>Rp ${i.qty*i.harga}</span>
+<span>${i.qty*i.harga}</span>
 </div>`).join("")}
 
-<p class="gold mt-3">Total: Rp ${total()}</p>
+<p class="gold mt-3">Total Rp ${total()}</p>
 
-<button onclick="pay('QRIS')" class="w-full mt-3 py-2 btn-gold">QRIS</button>
-<button onclick="pay('CASH')" class="w-full mt-2 py-2 bg-gray-700">Cash</button>
+<button onclick="bayar()" class="btn w-full py-2 mt-3 text-black">Bayar</button>
 </div>`;
 }
 
-/* STRUK */
+/* STRUK (kecil) */
 if(mode==="struk"){
 app.innerHTML=`
-<div class="p-6 text-center">
-<h2 class="gold mb-3">Struk Pembayaran</h2>
-
-<p>Kode: ${lastStruk.kode}</p>
-<p>Tanggal: ${lastStruk.tgl}</p>
-<p>Meja: ${lastStruk.meja}</p>
-
-<hr class="my-3">
-
-${lastStruk.items.map(i=>`
+<div class="flex justify-center items-center h-screen">
+<div class="bg-white text-black p-4 w-64 text-xs">
+<h2 class="text-center font-bold">CASTELLO</h2>
+<p>Kode: ${last.kode}</p>
+<p>${last.tgl}</p>
+<hr>
+${last.items.map(i=>`
 <div class="flex justify-between">
-<span>${i.nama} x${i.qty}</span>
+<span>${i.nama}x${i.qty}</span>
 <span>${i.total}</span>
 </div>`).join("")}
+<hr>
+<p>Total: ${last.total}</p>
 
-<p class="gold mt-3">Total: Rp ${lastStruk.total}</p>
+<p class="text-center mt-2">📸 Foto bukti pembayaran</p>
 
-<p class="mt-3 text-sm text-gray-400">Silahkan foto sebagai bukti pembayaran</p>
+<button onclick="mode='order';render()" class="w-full mt-2 border">Kembali</button>
+</div>
+</div>`;
+}
 
-<button onclick="mode='order';render()" class="mt-4 btn-gold px-4 py-2 text-black">
-Kembali
-</button>
+/* ADMIN */
+if(mode==="admin"){
+app.innerHTML=`
+<div class="flex min-h-screen">
+
+<div class="w-48 bg-black p-3 space-y-2">
+<button onclick="page='pesanan';render()">Pesanan</button>
+<button onclick="page='menu';render()">Menu</button>
+<button onclick="page='back';mode='home';render()">⬅ Kembali</button>
+</div>
+
+<div class="flex-1 p-4">
+${adminView()}
+</div>
+
 </div>`;
 }
 
@@ -181,129 +173,97 @@ Kembali
 function adminView(){
 
 if(page==="pesanan"){
-return orders.map((o,i)=>`
-<div class="card p-3 mb-2">
+return orders.map(o=>`
+<div class="card p-2 mb-2">
 <p>Meja ${o.meja}</p>
 <p>Rp ${o.total}</p>
-<button onclick="done(${i})" class="bg-green-500 px-2 mt-2">Done</button>
 </div>`).join("")||"Kosong";
 }
 
-if(page==="analisis"){
-setTimeout(chart,100);
-return `<canvas id="c"></canvas>`;
-}
-
-if(page==="keuangan"){
-return transaksi.map(t=>`
-<div class="flex justify-between">
-<span>Meja ${t.meja}</span>
-<span>Rp ${t.total}</span>
-</div>`).join("")+`<p class="gold mt-2">Total: Rp ${transaksi.reduce((a,b)=>a+b.total,0)}</p>`;
-}
-
-/* MENU ADMIN */
+/* MENU */
 if(page==="menu"){
 return `
 <h2 class="gold mb-2">Tambah Menu</h2>
 
-<input id="nama" placeholder="Nama" class="p-2 bg-black border mb-2 w-full">
-<input id="harga" placeholder="Harga" class="p-2 bg-black border mb-2 w-full">
+<input id="nama" placeholder="Nama" class="p-2 bg-black border w-full mb-2">
+<input id="harga" placeholder="Harga" class="p-2 bg-black border w-full mb-2">
 <input id="img" type="file" class="mb-2">
 
-<button onclick="tambahMenu()" class="btn-gold px-3 py-1 text-black">Tambah</button>
+<button onclick="addMenu()" class="btn px-3 text-black">Tambah</button>
 
-<h3 class="gold mt-4">List Menu</h3>
-${[...makanan,...minuman].map(m=>`
+<h3 class="gold mt-4">List</h3>
+
+${menus.map(m=>`
 <div class="flex justify-between border-b py-1">
 <span>${m.nama}</span>
-<input value="${m.harga}" onchange="editHarga(${m.id},this.value)" class="w-20 bg-black border">
+<div>
+<input value="${m.harga}" onchange="edit('${m.id}',this.value)" class="w-16 bg-black border">
+<button onclick="hapus('${m.id}')" class="text-red-400 ml-2">X</button>
+</div>
 </div>`).join("")}
-`;
-}
-
-/* PASSWORD */
-if(page==="password"){
-return `
-<input id="newpass" placeholder="Password baru" class="p-2 bg-black border">
-<button onclick="gantiPass()" class="btn-gold px-3 mt-2">Simpan</button>
 `;
 }
 
 }
 
 /* ================= LOGIC ================= */
-function login(){
-let p=document.getElementById("pass").value;
-if(p===passAdmin){mode="admin";render()} else alert("Salah");
-}
-function logout(){mode="home";render();}
 function setMeja(n){meja=n;mode="order";render();}
-function add(id){
-let item=[...makanan,...minuman].find(i=>i.id===id);
+
+function add(id,nama,harga){
 let f=cart.find(i=>i.id===id);
-f?f.qty++:cart.push({...item,qty:1});
+f?f.qty++:cart.push({id,nama,harga,qty:1});
 render();
 }
-function total(){return cart.reduce((a,b)=>a+(b.qty*b.harga),0);}
 
-/* BAYAR + STRUK */
-function pay(m){
+function total(){
+return cart.reduce((a,b)=>a+(b.qty*b.harga),0);
+}
+
+/* BAYAR REALTIME */
+let last=null;
+async function bayar(){
 let kode="TRX"+Date.now();
 let tgl=new Date().toLocaleString();
 
-lastStruk={
-kode,tgl,meja,total:total(),
-items:cart.map(i=>({nama:i.nama,qty:i.qty,total:i.qty*i.harga}))
+last={
+kode,tgl,total:total(),
+items:cart.map(i=>({...i,total:i.qty*i.harga}))
 };
 
-orders.push({meja,total:total()});
-transaksi.push({meja,total:total(),metode:m});
+await addDoc(collection(db,"orders"),{
+meja,total:total(),time:Date.now()
+});
 
 cart=[];
 mode="struk";
 render();
 }
 
-/* ADMIN */
-function done(i){orders.splice(i,1);render();}
-function gantiPass(){passAdmin=document.getElementById("newpass").value;alert("Password diganti");}
-
-function tambahMenu(){
+/* ADMIN FIREBASE */
+async function addMenu(){
 let nama=document.getElementById("nama").value;
 let harga=+document.getElementById("harga").value;
 let file=document.getElementById("img").files[0];
 
 let reader=new FileReader();
-reader.onload=function(e){
-makanan.push({id:Date.now(),nama,harga,img:e.target.result});
-render();
-}
+reader.onload=async e=>{
+await addDoc(collection(db,"menu"),{
+nama,harga,img:e.target.result
+});
+};
 if(file) reader.readAsDataURL(file);
 }
 
-function editHarga(id,val){
-let m=[...makanan,...minuman].find(i=>i.id==id);
-m.harga=+val;
+async function hapus(id){
+await deleteDoc(doc(db,"menu",id));
 }
 
-/* CHART */
-function chart(){
-let ctx=document.getElementById("c"); if(!ctx) return;
-new Chart(ctx,{type:"bar",data:{
-labels:transaksi.map((_,i)=>i+1),
-datasets:[{data:transaksi.map(t=>t.total)}]
-}});
-}
-
-/* SECRET */
-function secret(){
-tap++; if(tap>=3){mode="login";render();tap=0;}
-setTimeout(()=>tap=0,2000);
+async function edit(id,val){
+await updateDoc(doc(db,"menu",id),{harga:+val});
 }
 
 /* INIT */
-window.onload=()=>render();
+window.onload=render;
 </script>
 
 </body>
