@@ -6,9 +6,10 @@
 <title>Castello Resto</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { background:#0F0F0F; color:white; }
+body { background:#0F0F0F; color:white; font-family:sans-serif; }
 .gold { color:#C5A059; }
 .btn-gold { background: linear-gradient(135deg, #C5A059, #8E6E37); }
 .card { background:#1A1A1A; border:1px solid #2A2A2A; }
@@ -16,286 +17,224 @@ body { background:#0F0F0F; color:white; }
 </head>
 
 <body>
-
 <div id="app"></div>
 
 <script>
-let mode = "home";
-let tab = "makanan";
-let cart = [];
-let tapCount = 0;
-let meja = null;
+let mode="home", tab="makanan", cart=[], meja=null, tap=0;
 
 /* ADMIN */
-let passwordAdmin = "12345";
-let adminPage = "pesanan";
+let passAdmin="12345", page="pesanan";
 
-/* DATABASE SIMULASI */
-let orders = [];
-let transaksi = [];
+/* DATA */
+let orders=[], transaksi=[];
 
 /* MENU */
-const menuMakanan = [
- {id:1,nama:"Nasi Goreng",harga:20000,img:"https://source.unsplash.com/300x200/?fried-rice"},
- {id:2,nama:"Ayam Bakar",harga:25000,img:"https://source.unsplash.com/300x200/?grilled-chicken"}
+const makanan=[
+{id:1,nama:"Nasi Goreng",harga:20000,img:"https://source.unsplash.com/300x200/?fried-rice"},
+{id:2,nama:"Ayam Bakar",harga:25000,img:"https://source.unsplash.com/300x200/?grilled-chicken"}
 ];
-
-const menuMinuman = [
- {id:3,nama:"Es Teh",harga:10000,img:"https://source.unsplash.com/300x200/?tea"},
- {id:4,nama:"Jus Mangga",harga:15000,img:"https://source.unsplash.com/300x200/?juice"}
+const minuman=[
+{id:3,nama:"Es Teh",harga:10000,img:"https://source.unsplash.com/300x200/?tea"},
+{id:4,nama:"Jus Mangga",harga:15000,img:"https://source.unsplash.com/300x200/?juice"}
 ];
 
 /* ================= RENDER ================= */
 function render(){
-const app = document.getElementById("app");
-if(!app) return;
+const app=document.getElementById("app"); if(!app) return;
 
 /* HOME */
 if(mode==="home"){
-app.innerHTML = `
+app.innerHTML=`
 <div class="flex items-center justify-center min-h-screen text-center">
 <div>
-<h1 class="text-5xl gold mb-6">CASTELLO</h1>
-
-<button onclick="pilihMeja()" class="block w-64 py-4 mb-3 btn-gold text-black font-bold">
-MODE ORDER
-</button>
-
-<button onclick="mode='login';render()" class="block w-64 py-4 bg-gray-800 font-bold">
-MODE ADMIN
-</button>
-</div>
-</div>`;
+<h1 class="text-5xl gold mb-6 tracking-widest">CASTELLO</h1>
+<button onclick="mode='meja';render()" class="w-64 py-4 mb-3 btn-gold text-black rounded-xl">ORDER</button>
+<button onclick="mode='login';render()" class="w-64 py-4 bg-gray-800 rounded-xl">ADMIN</button>
+</div></div>`;
 }
 
 /* LOGIN */
 if(mode==="login"){
-app.innerHTML = `
+app.innerHTML=`
 <div class="flex items-center justify-center min-h-screen">
-<div class="card p-6 w-80 text-center">
-<h2 class="gold mb-4">Login Admin</h2>
-
-<input id="pass" type="password" placeholder="Password"
-class="w-full p-2 mb-3 bg-black border">
-
-<button onclick="login()" class="w-full py-2 btn-gold text-black">
-Masuk
-</button>
-
-<button onclick="mode='home';render()" class="mt-3 text-sm">
-Kembali
-</button>
-</div>
-</div>`;
+<div class="card p-6 w-80 text-center rounded-xl">
+<h2 class="gold mb-4">Admin Login</h2>
+<input id="pass" type="password" placeholder="Password" class="w-full p-2 mb-3 bg-black border rounded">
+<button onclick="login()" class="w-full py-2 btn-gold text-black rounded">Masuk</button>
+</div></div>`;
 }
 
-/* ADMIN DASHBOARD */
+/* ADMIN */
 if(mode==="admin"){
-app.innerHTML = `
+app.innerHTML=`
 <div class="flex min-h-screen">
-
-<div class="w-48 bg-black border-r border-gray-800 p-3 space-y-2">
-<button onclick="adminPage='pesanan';render()">Pesanan</button>
-<button onclick="adminPage='analisis';render()">Analisis</button>
-<button onclick="adminPage='keuangan';render()">Keuangan</button>
-<button onclick="adminPage='menu';render()">Menu</button>
-<button onclick="adminPage='password';render()">Password</button>
-<button onclick="logout()" class="text-red-400">Logout</button>
+<div class="w-56 bg-black border-r border-gray-800 p-4 space-y-3">
+<h2 class="gold text-xl">Admin</h2>
+<button onclick="page='pesanan';render()">📦 Pesanan</button>
+<button onclick="page='analisis';render()">📊 Analisis</button>
+<button onclick="page='keuangan';render()">💰 Keuangan</button>
+<button onclick="logout()" class="text-red-400 mt-4">Logout</button>
 </div>
-
-<div class="flex-1 p-4">
-${adminContent()}
-</div>
-
+<div class="flex-1 p-6">${adminView()}</div>
 </div>`;
 }
 
 /* PILIH MEJA */
 if(mode==="meja"){
-app.innerHTML = `
+app.innerHTML=`
 <div class="p-6 text-center">
-<h2 class="gold text-xl mb-4">Pilih Meja</h2>
-<div class="grid grid-cols-3 gap-3">
+<h2 class="gold mb-4">Pilih Meja</h2>
+<div class="grid grid-cols-3 gap-4">
 ${[1,2,3,4,5,6,7,8,9].map(n=>`
-<button onclick="setMeja(${n})" class="bg-gray-800 py-4 rounded">
-Meja ${n}
-</button>`).join("")}
-</div>
-</div>`;
+<button onclick="setMeja(${n})" class="bg-gray-800 py-6 rounded-xl">Meja ${n}</button>`).join("")}
+</div></div>`;
 }
 
 /* ORDER */
 if(mode==="order"){
-let menu = tab==="makanan"?menuMakanan:menuMinuman;
+let menu=tab==="makanan"?makanan:minuman;
 
-app.innerHTML = `
+app.innerHTML=`
 <header class="p-4 text-center relative">
 <h1 class="gold">CASTELLO</h1>
-<p class="text-xs">Meja ${meja}</p>
-
-<div onclick="secretTap()" class="absolute top-0 right-0 w-16 h-16 opacity-0"></div>
+<p class="text-xs text-gray-400">Meja ${meja}</p>
+<div onclick="secret()" class="absolute top-0 right-0 w-16 h-16"></div>
 </header>
 
 <div class="flex">
-<button onclick="tab='makanan';render()" class="flex-1 p-2 ${tab==="makanan"?"gold":""}">
-Makanan</button>
-<button onclick="tab='minuman';render()" class="flex-1 p-2 ${tab==="minuman"?"gold":""}">
-Minuman</button>
+<button onclick="tab='makanan';render()" class="flex-1 p-3 ${tab==="makanan"?"gold border-b":""}">Makanan</button>
+<button onclick="tab='minuman';render()" class="flex-1 p-3 ${tab==="minuman"?"gold border-b":""}">Minuman</button>
 </div>
 
-<div class="grid grid-cols-2 gap-3 p-3">
+<div class="grid grid-cols-2 gap-4 p-4">
 ${menu.map(m=>`
-<div class="card">
-<img src="${m.img}" class="h-24 w-full object-cover">
-<div class="p-2 text-center">
+<div class="card rounded-xl overflow-hidden">
+<img src="${m.img}" class="h-28 w-full object-cover">
+<div class="p-3 text-center">
 <p>${m.nama}</p>
 <p class="gold">Rp ${m.harga}</p>
-<button onclick="add(${m.id})" class="text-xs border px-2">Tambah</button>
+<button onclick="add(${m.id})" class="mt-2 text-xs border px-3 py-1 rounded">Tambah</button>
 </div>
 </div>`).join("")}
 </div>
 
-${cart.length>0?`
-<div class="fixed bottom-0 w-full bg-black p-3 flex justify-between">
-<span>Rp ${total()}</span>
-<button onclick="mode='checkout';render()" class="bg-yellow-500 px-4 text-black">
-Checkout
-</button>
+${cart.length?`
+<div class="fixed bottom-0 w-full bg-black p-4 flex justify-between">
+<span class="gold">Rp ${total()}</span>
+<button onclick="mode='checkout';render()" class="btn-gold px-4 py-2 text-black rounded">Checkout</button>
 </div>`:""}
 `;
 }
 
 /* CHECKOUT */
 if(mode==="checkout"){
-app.innerHTML = `
-<div class="p-4">
-<h2 class="gold">Pesanan Meja ${meja}</h2>
+app.innerHTML=`
+<div class="p-6">
+<h2 class="gold mb-4">Checkout</h2>
 
 ${cart.map(i=>`
-<div class="flex justify-between">
+<div class="flex justify-between mb-2">
 <span>${i.nama} x${i.qty}</span>
 <span>Rp ${i.qty*i.harga}</span>
 </div>`).join("")}
 
-<p class="mt-3 gold">Total: Rp ${total()}</p>
+<hr class="my-4">
 
-<button onclick="bayar()" class="w-full py-3 btn-gold text-black mt-4">
-Bayar
-</button>
+<p>Subtotal: Rp ${sub()}</p>
+<p>Pajak: Rp ${tax()}</p>
+<p class="gold text-lg">Total: Rp ${total()}</p>
+
+<div class="mt-6 space-y-3">
+<button onclick="pay('QRIS')" class="w-full py-3 btn-gold text-black rounded">Bayar QRIS</button>
+<button onclick="pay('CASH')" class="w-full py-3 bg-gray-700 rounded">Bayar Cash</button>
+</div>
 </div>`;
 }
 
 }
 
-/* ADMIN CONTENT */
-function adminContent(){
+/* ================= ADMIN VIEW ================= */
+function adminView(){
 
-if(adminPage==="pesanan"){
+if(page==="pesanan"){
 return `
 <h2 class="gold mb-4">Pesanan</h2>
 ${orders.map((o,i)=>`
-<div class="card p-2 mb-2">
+<div class="card p-3 mb-3 rounded">
 <p>Meja ${o.meja}</p>
-<p>Rp ${o.total}</p>
-<button onclick="done(${i})" class="bg-green-500 px-2">Done</button>
-</div>`).join("")}
+<p class="gold">Rp ${o.total}</p>
+<button onclick="done(${i})" class="bg-green-500 px-2 mt-2 rounded">Done</button>
+</div>`).join("") || "Kosong"}
 `;
 }
 
-if(adminPage==="analisis"){
-return `
-<h2 class="gold">Analisis</h2>
-<p>Total Order: ${orders.length}</p>
-<p>Total Transaksi: ${transaksi.length}</p>
-`;
+if(page==="analisis"){
+setTimeout(chart,100);
+return `<h2 class="gold mb-4">Analisis</h2><canvas id="c"></canvas>`;
 }
 
-if(adminPage==="keuangan"){
+if(page==="keuangan"){
 return `
-<h2 class="gold">Keuangan</h2>
+<h2 class="gold mb-4">Keuangan</h2>
 ${transaksi.map(t=>`
-<div class="flex justify-between">
+<div class="flex justify-between border-b py-1">
 <span>Meja ${t.meja}</span>
 <span>Rp ${t.total}</span>
 </div>`).join("")}
-<p class="gold mt-2">
-Total: Rp ${transaksi.reduce((a,b)=>a+b.total,0)}
-</p>
+<p class="gold mt-3">Total: Rp ${transaksi.reduce((a,b)=>a+b.total,0)}</p>
 `;
 }
 
-if(adminPage==="menu"){
-return `<h2 class="gold">Menu (Coming Soon)</h2>`;
 }
 
-if(adminPage==="password"){
-return `
-<h2 class="gold">Ganti Password</h2>
-<input id="newpass" class="p-2 bg-black border">
-<button onclick="gantiPassword()" class="btn-gold px-3 text-black mt-2">
-Simpan
-</button>`;
-}
-
-}
-
-/* ACTION */
+/* ================= LOGIC ================= */
 function login(){
-let p = document.getElementById("pass").value;
-if(p===passwordAdmin){mode="admin";render();}
-else{alert("Password salah")}
+let p=document.getElementById("pass").value;
+if(p===passAdmin){mode="admin";render()} else alert("Salah");
 }
-
 function logout(){mode="home";render();}
-
-function pilihMeja(){mode="meja";render();}
 function setMeja(n){meja=n;mode="order";render();}
-
 function add(id){
-let item=[...menuMakanan,...menuMinuman].find(i=>i.id===id);
+let item=[...makanan,...minuman].find(i=>i.id===id);
 let f=cart.find(i=>i.id===id);
-if(f){f.qty++}else{cart.push({...item,qty:1})}
+f?f.qty++:cart.push({...item,qty:1});
 render();
 }
+function sub(){return cart.reduce((a,b)=>a+(b.qty*b.harga),0);}
+function tax(){return Math.round(sub()*0.1);}
+function total(){return sub()+tax();}
 
-function total(){
-return cart.reduce((a,b)=>a+(b.qty*b.harga),0);
-}
-
-function bayar(){
+/* BAYAR */
+function pay(m){
 orders.push({meja,total:total()});
-transaksi.push({meja,total:total()});
-cart=[];
-mode="order";
-render();
-alert("Pesanan dikirim ke dapur!");
+transaksi.push({meja,total:total(),metode:m});
+cart=[]; mode="order"; render();
+setTimeout(()=>alert("Lunas ("+m+")"),100);
 }
 
-function done(i){
-orders.splice(i,1);
-render();
+/* ADMIN */
+function done(i){orders.splice(i,1);render();}
+
+/* CHART */
+function chart(){
+let ctx=document.getElementById("c"); if(!ctx) return;
+new Chart(ctx,{
+type:"bar",
+data:{
+labels:transaksi.map((_,i)=>"T"+(i+1)),
+datasets:[{label:"Pendapatan",data:transaksi.map(t=>t.total)}]
+}
+});
 }
 
-function gantiPassword(){
-passwordAdmin=document.getElementById("newpass").value;
-alert("Password diganti");
+/* SECRET */
+function secret(){
+tap++; if(tap>=3){mode="login";render();tap=0;}
+setTimeout(()=>tap=0,2000);
 }
 
-/* SECRET TAP */
-function secretTap(){
-tapCount++;
-if(tapCount>=3){
-mode="login";
-render();
-tapCount=0;
-}
-setTimeout(()=>tapCount=0,2000);
-}
-
-/* INIT FIX (ANTI ERROR) */
-window.onload = () => {
-render();
-};
+/* INIT */
+window.onload=()=>render();
 </script>
 
 </body>
